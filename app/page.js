@@ -16,6 +16,8 @@ const APP_PASSWORD = '4Iowlbnaf4!'
 function TodoApp() {
   const [tasks, setTasks] = useState([])
   const [scheduled, setScheduled] = useState([])
+  const [habits, setHabits] = useState([])
+  const [habitCompletions, setHabitCompletions] = useState([])
   const [newTask, setNewTask] = useState('')
   const [newCategory, setNewCategory] = useState('personal')
   const [newProjectId, setNewProjectId] = useState('')
@@ -28,6 +30,11 @@ function TodoApp() {
   const [bulkImportText, setBulkImportText] = useState('')
   const [showBulkImport, setShowBulkImport] = useState(false)
   
+  const [newHabit, setNewHabit] = useState('')
+  const [newHabitCategory, setNewHabitCategory] = useState('personal')
+  const [newHabitGoal, setNewHabitGoal] = useState(7)
+  const [showAddHabit, setShowAddHabit] = useState(false)
+  
   const [newScheduled, setNewScheduled] = useState('')
   const [newScheduledCategory, setNewScheduledCategory] = useState('personal')
   const [newScheduledProjectId, setNewScheduledProjectId] = useState('')
@@ -37,6 +44,8 @@ function TodoApp() {
   useEffect(() => {
     fetchTasks()
     fetchScheduled()
+    fetchHabits()
+    fetchHabitCompletions()
   }, [])
 
   async function fetchTasks() {
@@ -47,6 +56,69 @@ function TodoApp() {
   async function fetchScheduled() {
     const { data } = await supabase.from('scheduled_items').select('*').order('date', { ascending: true })
     if (data) setScheduled(data)
+  }
+
+  async function fetchHabits() {
+    const { data } = await supabase.from('habits').select('*').order('created_at', { ascending: false })
+    if (data) setHabits(data)
+  }
+
+  async function fetchHabitCompletions() {
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    const { data } = await supabase
+      .from('habit_completions')
+      .select('*')
+      .gte('completed_date', sevenDaysAgo.toISOString().split('T')[0])
+    if (data) setHabitCompletions(data)
+  }
+
+  async function addHabit() {
+    if (!newHabit.trim()) return
+    const { data } = await supabase.from('habits').insert([{
+      text: newHabit.trim(),
+      category: newHabitCategory,
+      weekly_goal: newHabitGoal
+    }]).select()
+    if (data) {
+      setHabits([data[0], ...habits])
+      setNewHabit('')
+      setNewHabitGoal(7)
+      setShowAddHabit(false)
+    }
+  }
+
+  async function deleteHabit(id) {
+    await supabase.from('habits').delete().eq('id', id)
+    setHabits(habits.filter(h => h.id !== id))
+  }
+
+  async function toggleHabitCompletion(habitId) {
+    const today = new Date().toISOString().split('T')[0]
+    const existing = habitCompletions.find(c => c.habit_id === habitId && c.completed_date === today)
+    
+    if (existing) {
+      await supabase.from('habit_completions').delete().eq('id', existing.id)
+      setHabitCompletions(habitCompletions.filter(c => c.id !== existing.id))
+    } else {
+      const { data } = await supabase.from('habit_completions').insert([{
+        habit_id: habitId,
+        completed_date: today
+      }]).select()
+      if (data) setHabitCompletions([...habitCompletions, data[0]])
+    }
+  }
+
+  function getHabitProgress(habitId, weeklyGoal) {
+    const completionsForHabit = habitCompletions.filter(c => c.habit_id === habitId)
+    const completed = completionsForHabit.length
+    const percentage = weeklyGoal > 0 ? Math.round((completed / weeklyGoal) * 100) : 0
+    return { completed, goal: weeklyGoal, percentage }
+  }
+
+  function isHabitCompletedToday(habitId) {
+    const today = new Date().toISOString().split('T')[0]
+    return habitCompletions.some(c => c.habit_id === habitId && c.completed_date === today)
   }
 
   async function addTask() {
@@ -222,6 +294,13 @@ function TodoApp() {
     return activeTasks.filter(t => t.project_id === projectId && !t.completed).length
   }
 
+  const getDateRange = () => {
+    const today = new Date()
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(today.getDate() - 6)
+    return `${sevenDaysAgo.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+  }
+
   return (
     <div style={{ maxWidth: '700px', margin: '0 auto', padding: '24px', minHeight: '100vh' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -297,6 +376,73 @@ function TodoApp() {
               frameBorder="0" 
               scrolling="no"
             />
+          </div>
+
+          <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '16px', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <div>
+                <div style={{ fontSize: '18px', fontWeight: '600', color: '#1e293b' }}>✅ Habit Tracker</div>
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Rolling 7 Days ({getDateRange()})</div>
+              </div>
+              <button onClick={() => setShowAddHabit(!showAddHabit)} style={{ padding: '6px 12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: '500' }}>{showAddHabit ? 'Cancel' : '+ Add Habit'}</button>
+            </div>
+
+            {showAddHabit && (
+              <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', marginBottom: '16px' }}>
+                <input 
+                  value={newHabit} 
+                  onChange={(e) => setNewHabit(e.target.value)} 
+                  placeholder="Habit name (e.g., Exercise, Meditate)" 
+                  style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px', marginBottom: '8px' }} 
+                />
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '12px', color: '#64748b' }}>Category:</span>
+                  <select value={newHabitCategory} onChange={(e) => setNewHabitCategory(e.target.value)} style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}>
+                    {Object.entries(CATEGORIES).map(([key, { label }]) => <option key={key} value={key}>{label}</option>)}
+                  </select>
+                  <span style={{ fontSize: '12px', color: '#64748b', marginLeft: '8px' }}>Weekly Goal:</span>
+                  <input 
+                    type="number" 
+                    min="1" 
+                    max="7" 
+                    value={newHabitGoal} 
+                    onChange={(e) => setNewHabitGoal(parseInt(e.target.value))} 
+                    style={{ width: '60px', padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px', textAlign: 'center' }} 
+                  />
+                  <span style={{ fontSize: '12px', color: '#64748b' }}>days/week</span>
+                </div>
+                <button onClick={addHabit} style={{ padding: '8px 16px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500', width: '100%' }}>Add Habit</button>
+              </div>
+            )}
+
+            {habits.length === 0 ? (
+              <p style={{ fontSize: '14px', color: '#64748b', textAlign: 'center', padding: '24px' }}>No habits yet. Click &quot;+ Add Habit&quot; to create one!</p>
+            ) : (
+              <div>
+                {habits.map(habit => {
+                  const progress = getHabitProgress(habit.id, habit.weekly_goal)
+                  const isCompleted = isHabitCompletedToday(habit.id)
+                  const metGoal = progress.completed >= progress.goal
+                  return (
+                    <div key={habit.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', borderBottom: '1px solid #f1f5f9' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={isCompleted} 
+                        onChange={() => toggleHabitCompletion(habit.id)} 
+                        style={{ width: '20px', height: '20px', cursor: 'pointer' }} 
+                      />
+                      <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', background: CATEGORIES[habit.category]?.color, color: CATEGORIES[habit.category]?.textColor, border: `1px solid ${CATEGORIES[habit.category]?.border}` }}>{CATEGORIES[habit.category]?.label}</span>
+                      <span style={{ flex: 1, fontSize: '14px', fontWeight: '500' }}>{habit.text}</span>
+                      <span style={{ fontSize: '13px', color: metGoal ? '#16a34a' : '#64748b', fontWeight: '500' }}>
+                        {progress.completed}/{progress.goal} days {metGoal && '✅'}
+                      </span>
+                      <span style={{ fontSize: '12px', color: '#9ca3af' }}>({progress.percentage}%)</span>
+                      <button onClick={() => deleteHabit(habit.id)} style={{ padding: '4px 8px', color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '12px', opacity: 0.5 }}>Delete</button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '16px', marginBottom: '24px' }}>
@@ -403,6 +549,7 @@ function TodoApp() {
         </>
       ) : (
         <>
+          {/* Projects view - keeping existing code */}
           <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '16px', marginBottom: '24px' }}>
             <div style={{ fontSize: '14px', fontWeight: '500', color: '#475569', marginBottom: '12px' }}>Create New Project</div>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
