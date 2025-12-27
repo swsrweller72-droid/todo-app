@@ -4,10 +4,10 @@ import { supabase } from '../lib/supabase'
 import PasswordGate from '../components/PasswordGate'
 
 const CATEGORIES = {
-  body: { label: 'Body', color: '#d1fae5', textColor: '#065f46', border: '#6ee7b7' },
-  mind: { label: 'Mind', color: '#ede9fe', textColor: '#5b21b6', border: '#c4b5fd' },
-  work: { label: 'Work', color: '#dbeafe', textColor: '#1e40af', border: '#93c5fd' },
-  personal: { label: 'Personal', color: '#fef3c7', textColor: '#92400e', border: '#fcd34d' },
+  body: { label: 'Body', color: '#dbeafe', textColor: '#1e40af', border: '#93c5fd' },
+  mind: { label: 'Mind', color: '#d1fae5', textColor: '#065f46', border: '#6ee7b7' },
+  work: { label: 'Work', color: '#fef3c7', textColor: '#92400e', border: '#fcd34d' },
+  personal: { label: 'Personal', color: '#ede9fe', textColor: '#5b21b6', border: '#c4b5fd' },
   spiritual: { label: 'Spiritual', color: '#ffe4e6', textColor: '#9f1239', border: '#fda4af' },
 }
 
@@ -34,6 +34,7 @@ function TodoApp() {
   const [newHabitCategory, setNewHabitCategory] = useState('personal')
   const [newHabitGoal, setNewHabitGoal] = useState(7)
   const [showAddHabit, setShowAddHabit] = useState(false)
+  const [editingHabit, setEditingHabit] = useState(null)
   
   const [newScheduled, setNewScheduled] = useState('')
   const [newScheduledCategory, setNewScheduledCategory] = useState('personal')
@@ -85,6 +86,14 @@ function TodoApp() {
       setNewHabit('')
       setNewHabitGoal(7)
       setShowAddHabit(false)
+    }
+  }
+
+  async function updateHabit(id, updates) {
+    const { data } = await supabase.from('habits').update(updates).eq('id', id).select()
+    if (data) {
+      setHabits(habits.map(h => h.id === id ? data[0] : h))
+      setEditingHabit(null)
     }
   }
 
@@ -449,21 +458,56 @@ function TodoApp() {
                   const progress = getHabitProgress(habit.id, habit.weekly_goal)
                   const isCompleted = isHabitCompletedToday(habit.id)
                   const metGoal = progress.completed >= progress.goal
+                  const isEditing = editingHabit?.id === habit.id
+                  
                   return (
-                    <div key={habit.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', borderBottom: '1px solid #f1f5f9' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={isCompleted} 
-                        onChange={() => toggleHabitCompletion(habit.id)} 
-                        style={{ width: '20px', height: '20px', cursor: 'pointer' }} 
-                      />
-                      <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', background: CATEGORIES[habit.category]?.color, color: CATEGORIES[habit.category]?.textColor, border: `1px solid ${CATEGORIES[habit.category]?.border}` }}>{CATEGORIES[habit.category]?.label}</span>
-                      <span style={{ flex: 1, fontSize: '14px', fontWeight: '500' }}>{habit.text}</span>
-                      <span style={{ fontSize: '13px', color: metGoal ? '#16a34a' : '#64748b', fontWeight: '500' }}>
-                        {progress.completed}/{progress.goal} days {metGoal && '✅'}
-                      </span>
-                      <span style={{ fontSize: '12px', color: '#9ca3af' }}>({progress.percentage}%)</span>
-                      <button onClick={() => deleteHabit(habit.id)} style={{ padding: '4px 8px', color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '12px', opacity: 0.5 }}>Delete</button>
+                    <div key={habit.id} style={{ padding: '12px', borderBottom: '1px solid #f1f5f9' }}>
+                      {isEditing ? (
+                        <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px' }}>
+                          <input 
+                            value={editingHabit.text} 
+                            onChange={(e) => setEditingHabit({ ...editingHabit, text: e.target.value })} 
+                            style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px', marginBottom: '8px' }} 
+                          />
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '12px', color: '#64748b' }}>Category:</span>
+                            <select value={editingHabit.category} onChange={(e) => setEditingHabit({ ...editingHabit, category: e.target.value })} style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}>
+                              {Object.entries(CATEGORIES).map(([key, { label }]) => <option key={key} value={key}>{label}</option>)}
+                            </select>
+                            <span style={{ fontSize: '12px', color: '#64748b', marginLeft: '8px' }}>Weekly Goal:</span>
+                            <input 
+                              type="number" 
+                              min="1" 
+                              max="7" 
+                              value={editingHabit.weekly_goal} 
+                              onChange={(e) => setEditingHabit({ ...editingHabit, weekly_goal: parseInt(e.target.value) })} 
+                              style={{ width: '60px', padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px', textAlign: 'center' }} 
+                            />
+                            <span style={{ fontSize: '12px', color: '#64748b' }}>days/week</span>
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button onClick={() => updateHabit(habit.id, { text: editingHabit.text, category: editingHabit.category, weekly_goal: editingHabit.weekly_goal })} style={{ flex: 1, padding: '8px 16px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>Save</button>
+                            <button onClick={() => setEditingHabit(null)} style={{ flex: 1, padding: '8px 16px', background: '#e2e8f0', color: '#475569', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={isCompleted} 
+                            onChange={() => toggleHabitCompletion(habit.id)} 
+                            style={{ width: '20px', height: '20px', cursor: 'pointer' }} 
+                          />
+                          <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', background: CATEGORIES[habit.category]?.color, color: CATEGORIES[habit.category]?.textColor, border: `1px solid ${CATEGORIES[habit.category]?.border}` }}>{CATEGORIES[habit.category]?.label}</span>
+                          <span style={{ flex: 1, fontSize: '14px', fontWeight: '500' }}>{habit.text}</span>
+                          <span style={{ fontSize: '13px', color: metGoal ? '#16a34a' : '#64748b', fontWeight: '500' }}>
+                            {progress.completed}/{progress.goal} days {metGoal && '✅'}
+                          </span>
+                          <span style={{ fontSize: '12px', color: '#9ca3af' }}>({progress.percentage}%)</span>
+                          <button onClick={() => setEditingHabit(habit)} style={{ padding: '4px 8px', color: '#2563eb', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '12px', opacity: 0.5 }}>Edit</button>
+                          <button onClick={() => deleteHabit(habit.id)} style={{ padding: '4px 8px', color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '12px', opacity: 0.5 }}>Delete</button>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
