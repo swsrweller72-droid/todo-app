@@ -249,12 +249,6 @@ function TodoApp() {
     }
   }
 
-  async function toggleTaskStatus(id) {
-    const task = tasks.find(t => t.id === id)
-    const { data } = await supabase.from('tasks').update({ is_task: !task.is_task }).eq('id', id).select()
-    if (data) setTasks(tasks.map(t => t.id === id ? data[0] : t))
-  }
-
   const getFocusOrder = (task) => categoryFilter === 'all' ? task.global_focus_order : task.category_focus_order
   
   const activeTasks = tasks.filter(t => t.is_task)
@@ -549,7 +543,6 @@ function TodoApp() {
         </>
       ) : (
         <>
-          {/* Projects view - keeping existing code */}
           <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '16px', marginBottom: '24px' }}>
             <div style={{ fontSize: '14px', fontWeight: '500', color: '#475569', marginBottom: '12px' }}>Create New Project</div>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
@@ -573,7 +566,7 @@ function TodoApp() {
 
           <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
             <div style={{ padding: '12px 16px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-              <span style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase' }}>Projects (not on to-do list yet)</span>
+              <span style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase' }}>Projects (Umbrellas for Tasks)</span>
             </div>
             {filteredProjects.length === 0 ? (
               <p style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>No projects yet. Create one above!</p>
@@ -584,13 +577,12 @@ function TodoApp() {
                   <span style={{ flex: 1, fontSize: '14px' }}>{project.text} <span style={{ color: '#64748b', fontSize: '12px' }}>({getProjectTaskCount(project.id)} tasks)</span></span>
                   {project.claude_project_url && <span style={{ fontSize: '12px', padding: '2px 6px', borderRadius: '4px', background: '#ffedd5', color: '#c2410c', fontWeight: '500' }}>✦</span>}
                   {project.notes && <span style={{ color: '#9ca3af', fontSize: '12px' }}>📎</span>}
-                  <button onClick={(e) => { e.stopPropagation(); toggleTaskStatus(project.id) }} style={{ padding: '6px 12px', background: '#dbeafe', color: '#1e40af', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Add to To-Do</button>
                   <button onClick={(e) => { e.stopPropagation(); deleteTask(project.id) }} style={{ padding: '4px 8px', color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '12px', opacity: 0.5 }}>Delete</button>
                 </div>
               ))
             )}
           </div>
-          <p style={{ fontSize: '12px', color: '#64748b', marginTop: '16px' }}>Projects are containers for related work. Add them to your to-do list when you&apos;re ready. Tasks can be assigned to projects. ✦ = linked to Claude Project</p>
+          <p style={{ fontSize: '12px', color: '#64748b', marginTop: '16px' }}>Projects are containers for related tasks. Assign tasks to projects to organize your work. ✦ = linked to Claude Project</p>
         </>
       )}
 
@@ -606,16 +598,7 @@ function TodoApp() {
               <button onClick={() => setActiveProject(null)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#9ca3af' }}>✕</button>
             </div>
             <div style={{ padding: '16px' }}>
-              <input value={activeProject.text} onChange={(e) => updateProject(activeProject.id, { text: e.target.value }, activeProject.isScheduled)} placeholder="Task name..." style={{ width: '100%', fontSize: '20px', fontWeight: '600', border: 'none', outline: 'none', marginBottom: '16px' }} />
-
-              {!activeProject.isScheduled && (
-                <div style={{ marginBottom: '16px', padding: '12px', background: '#f8fafc', borderRadius: '8px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={activeProject.is_task} onChange={() => { toggleTaskStatus(activeProject.id); setActiveProject({ ...activeProject, is_task: !activeProject.is_task }) }} style={{ width: '20px', height: '20px' }} />
-                    <span style={{ fontSize: '14px', color: '#475569' }}>Show on To-Do List</span>
-                  </label>
-                </div>
-              )}
+              <input value={activeProject.text} onChange={(e) => updateProject(activeProject.id, { text: e.target.value }, activeProject.isScheduled)} placeholder={activeProject.is_task ? "Task name..." : "Project name..."} style={{ width: '100%', fontSize: '20px', fontWeight: '600', border: 'none', outline: 'none', marginBottom: '16px' }} />
 
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Category</label>
