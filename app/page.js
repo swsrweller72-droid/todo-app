@@ -25,6 +25,9 @@ function TodoApp() {
   const [activeProject, setActiveProject] = useState(null)
   const [filter, setFilter] = useState('all')
   
+  const [bulkImportText, setBulkImportText] = useState('')
+  const [showBulkImport, setShowBulkImport] = useState(false)
+  
   const [newScheduled, setNewScheduled] = useState('')
   const [newScheduledCategory, setNewScheduledCategory] = useState('personal')
   const [newScheduledProjectId, setNewScheduledProjectId] = useState('')
@@ -58,6 +61,25 @@ function TodoApp() {
       setTasks([data[0], ...tasks])
       setNewTask('')
       setNewProjectId('')
+    }
+  }
+
+  async function bulkImportTasks() {
+    if (!bulkImportText.trim()) return
+    
+    const lines = bulkImportText.split('\n').filter(line => line.trim())
+    const tasksToImport = lines.map(line => ({
+      text: line.trim(),
+      category: 'personal',
+      is_task: true
+    }))
+    
+    const { data } = await supabase.from('tasks').insert(tasksToImport).select()
+    if (data) {
+      setTasks([...data, ...tasks])
+      setBulkImportText('')
+      setShowBulkImport(false)
+      alert(`Successfully imported ${data.length} tasks!`)
     }
   }
 
@@ -213,6 +235,25 @@ function TodoApp() {
 
       {view === 'todos' ? (
         <>
+          <div style={{ background: '#fff7ed', borderRadius: '12px', border: '2px solid #fed7aa', padding: '16px', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showBulkImport ? '12px' : '0' }}>
+              <div style={{ fontSize: '16px', fontWeight: '600', color: '#c2410c' }}>📥 Bulk Import Tasks</div>
+              <button onClick={() => setShowBulkImport(!showBulkImport)} style={{ padding: '6px 12px', background: '#fb923c', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: '500' }}>{showBulkImport ? 'Hide' : 'Show'}</button>
+            </div>
+            {showBulkImport && (
+              <>
+                <p style={{ fontSize: '12px', color: '#9a3412', marginBottom: '12px' }}>Paste all your tasks below (one per line). They&apos;ll be imported as &quot;Personal&quot; category. Edit them later to assign categories and projects.</p>
+                <textarea 
+                  value={bulkImportText} 
+                  onChange={(e) => setBulkImportText(e.target.value)} 
+                  placeholder="Buy groceries&#10;Call dentist&#10;Finish report&#10;Schedule meeting" 
+                  style={{ width: '100%', padding: '12px', border: '1px solid #fed7aa', borderRadius: '8px', fontSize: '14px', minHeight: '150px', resize: 'vertical', marginBottom: '12px' }} 
+                />
+                <button onClick={bulkImportTasks} style={{ padding: '10px 16px', background: '#ea580c', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '500', width: '100%' }}>Import All Tasks</button>
+              </>
+            )}
+          </div>
+
           <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '8px' }}>
             <button onClick={() => setCategoryFilter('all')} style={{ padding: '8px 16px', borderRadius: '8px', border: categoryFilter === 'all' ? '2px solid #4f46e5' : '1px solid #e2e8f0', cursor: 'pointer', fontSize: '14px', fontWeight: '500', background: categoryFilter === 'all' ? '#eef2ff' : 'white', color: '#1e293b' }}>All</button>
             {Object.entries(CATEGORIES).map(([key, { label, color, border }]) => (
@@ -428,6 +469,13 @@ function TodoApp() {
                   </label>
                 </div>
               )}
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Category</label>
+                <select value={activeProject.category} onChange={(e) => updateProject(activeProject.id, { category: e.target.value }, activeProject.isScheduled)} style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}>
+                  {Object.entries(CATEGORIES).map(([key, { label }]) => <option key={key} value={key}>{label}</option>)}
+                </select>
+              </div>
 
               {activeProject.is_task && (
                 <div style={{ marginBottom: '16px' }}>
