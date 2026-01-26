@@ -653,7 +653,7 @@ function TodoApp() {
               {activeProject.is_task && (
                 <div style={{ marginBottom: '16px' }}>
                   <label style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Assign to Project</label>
-                  <select value={activeProject.project_id || ''} onChange={(e) => updateProject(activeProject.id, { project_id: e.target.value || null }, activeProject.isScheduled)} style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}>
+                  <select value={activeProject.project_id || ''} onChange={(e) => updateProject(activeProject.id, { project_id: e.target.value === '' ? null : e.target.value }, activeProject.isScheduled)} style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}>
                     <option value="">No Project</option>
                     {projects.map(project => <option key={project.id} value={project.id}>{project.text}</option>)}
                   </select>
