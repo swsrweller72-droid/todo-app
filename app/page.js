@@ -269,13 +269,13 @@ function TodoApp() {
   }
 
   const focusQueue = categoryFilter === 'all'
-    ? activeTasks.filter(t => t.global_focus_order !== null && !t.completed && (projectFilter === 'all' || (projectFilter === 'none' ? !t.project_id : t.project_id === parseInt(projectFilter)))).sort((a, b) => a.global_focus_order - b.global_focus_order)
-    : activeTasks.filter(t => t.category === categoryFilter && t.category_focus_order !== null && !t.completed && (projectFilter === 'all' || (projectFilter === 'none' ? !t.project_id : t.project_id === parseInt(projectFilter)))).sort((a, b) => a.category_focus_order - b.category_focus_order)
+    ? activeTasks.filter(t => t.global_focus_order !== null && !t.completed && (projectFilter === 'all' || (projectFilter === 'none' ? !t.project_id : t.project_id === projectFilter))).sort((a, b) => a.global_focus_order - b.global_focus_order)
+    : activeTasks.filter(t => t.category === categoryFilter && t.category_focus_order !== null && !t.completed && (projectFilter === 'all' || (projectFilter === 'none' ? !t.project_id : t.project_id === projectFilter))).sort((a, b) => a.category_focus_order - b.category_focus_order)
   
   const otherTasks = activeTasks
     .filter(t => filter === 'all' ? true : filter === 'active' ? !t.completed : t.completed)
     .filter(t => categoryFilter === 'all' || t.category === categoryFilter)
-    .filter(t => projectFilter === 'all' || (projectFilter === 'none' ? !t.project_id : t.project_id === parseInt(projectFilter)))
+    .filter(t => projectFilter === 'all' || (projectFilter === 'none' ? !t.project_id : t.project_id === projectFilter))
     .filter(t => getFocusOrder(t) === null || t.completed)
 
   const filteredProjects = projects.filter(p => categoryFilter === 'all' || p.category === categoryFilter)
