@@ -644,14 +644,22 @@ function TodoApp() {
               <input value={activeProject.text} onChange={(e) => updateProject(activeProject.id, { text: e.target.value }, activeProject.isScheduled)} placeholder={activeProject.is_task ? "Task name..." : "Project name..."} style={{ width: '100%', fontSize: '20px', fontWeight: '600', border: 'none', outline: 'none', marginBottom: '16px' }} />
 
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Category</label>
-                <select value={activeProject.category} onChange={(e) => updateProject(activeProject.id, { category: e.target.value }, activeProject.isScheduled)} style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}>
-                  {Object.entries(CATEGORIES).map(([key, { label }]) => <option key={key} value={key}>{label}</option>)}
-                </select>
-              </div>
+  <label style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Category</label>
+  <select value={activeProject.category} onChange={(e) => updateProject(activeProject.id, { category: e.target.value }, activeProject.isScheduled)} style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}>
+    {Object.entries(CATEGORIES).map(([key, { label }]) => <option key={key} value={key}>{label}</option>)}
+  </select>
+</div>
 
-              {activeProject.is_task && (
-                <div style={{ marginBottom: '16px' }}>
+<div style={{ marginBottom: '16px' }}>
+  <label style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Assign to Project</label>
+  <select value={activeProject.project_id?.toString() || ''} onChange={(e) => updateProject(activeProject.id, { project_id: e.target.value === '' ? null : e.target.value }, activeProject.isScheduled)} style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}>
+    <option value="">No Project</option>
+    {projects.map(project => <option key={project.id} value={project.id.toString()}>{project.text}</option>)}
+  </select>
+</div>
+
+{activeProject.is_task && !activeProject.isScheduled && (
+  <div style={{ marginBottom: '16px' }}>
                   <label style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Assign to Project</label>
                   <select value={activeProject.project_id || ''} onChange={(e) => updateProject(activeProject.id, { project_id: e.target.value === '' ? null : e.target.value }, activeProject.isScheduled)} style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}>
                     <option value="">No Project</option>
