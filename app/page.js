@@ -13,37 +13,16 @@ const CATEGORIES = {
 function TodoApp() {
   const [tasks, setTasks] = useState([])
   const [scheduled, setScheduled] = useState([])
-  const [habits, setHabits] = useState([])
-  const [habitCompletions, setHabitCompletions] = useState([])
   const [newTask, setNewTask] = useState('')
   const [newCategory, setNewCategory] = useState('personal')
   const [newProjectId, setNewProjectId] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('all')
-  const [projectFilter, setProjectFilter] = useState('all')
-  const [view, setView] = useState('todos')
-  const [activeProject, setActiveProject] = useState(null)
-  const [filter, setFilter] = useState('all')
-
-  const [bulkImportText, setBulkImportText] = useState('')
-  const [showBulkImport, setShowBulkImport] = useState(false)
-
-  const [newHabit, setNewHabit] = useState('')
-  const [newHabitCategory, setNewHabitCategory] = useState('personal')
-  const [newHabitGoal, setNewHabitGoal] = useState(7)
-  const [showAddHabit, setShowAddHabit] = useState(false)
-  const [editingHabit, setEditingHabit] = useState(null)
-
   const [newScheduled, setNewScheduled] = useState('')
-  const [newScheduledCategory, setNewScheduledCategory] = useState('personal')
   const [newScheduledProjectId, setNewScheduledProjectId] = useState('')
   const [newScheduledDate, setNewScheduledDate] = useState('')
-  const [newScheduledTime, setNewScheduledTime] = useState('')
 
   useEffect(() => {
     fetchTasks()
     fetchScheduled()
-    fetchHabits()
-    fetchHabitCompletions()
   }, [])
 
   async function fetchTasks() {
@@ -54,21 +33,6 @@ function TodoApp() {
   async function fetchScheduled() {
     const { data } = await supabase.from('scheduled_items').select('*').order('date', { ascending: true })
     if (data) setScheduled(data)
-  }
-
-  async function fetchHabits() {
-    const { data } = await supabase.from('habits').select('*').order('created_at', { ascending: false })
-    if (data) setHabits(data)
-  }
-
-  async function fetchHabitCompletions() {
-    const sevenDaysAgo = new Date()
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-    const { data } = await supabase
-      .from('habit_completions')
-      .select('*')
-      .gte('completed_date', sevenDaysAgo.toISOString().split('T')[0])
-    if (data) setHabitCompletions(data)
   }
 
   async function addTask() {
@@ -90,54 +54,73 @@ function TodoApp() {
     if (!newScheduled.trim() || !newScheduledDate) return
     const { data } = await supabase.from('scheduled_items').insert([{
       text: newScheduled.trim(),
-      category: newScheduledCategory,
       project_id: newScheduledProjectId ? parseInt(newScheduledProjectId, 10) : null,
-      date: newScheduledDate,
-      time: newScheduledTime || null
+      date: newScheduledDate
     }]).select()
     if (data) {
-      setScheduled([...scheduled, data[0]].sort((a, b) => new Date(a.date) - new Date(b.date)))
+      setScheduled([...scheduled, data[0]])
       setNewScheduled('')
       setNewScheduledProjectId('')
       setNewScheduledDate('')
-      setNewScheduledTime('')
     }
   }
 
-  async function updateProject(id, updates, isScheduled = false) {
-    const table = isScheduled ? 'scheduled_items' : 'tasks'
-    const { data } = await supabase.from(table).update(updates).eq('id', id).select()
-    if (data) {
-      if (isScheduled) {
-        setScheduled(scheduled.map(s => s.id === id ? data[0] : s))
-      } else {
-        setTasks(tasks.map(t => t.id === id ? data[0] : t))
-      }
-      setActiveProject({ ...activeProject, ...data[0] })
-    }
-  }
-
-  /* UI RENDER OMITTED — unchanged from your original */
-  /* Everything below remains exactly as you provided, except one line below */
+  const projects = tasks.filter(t => !t.is_task)
+  const taskItems = tasks.filter(t => t.is_task)
 
   return (
-    <>
-      {/* … all your existing JSX … */}
-      {activeProject?.is_task && (
-        <select
-          value={activeProject.project_id || ''}
-          onChange={(e) =>
-            updateProject(
-              activeProject.id,
-              { project_id: e.target.value ? parseInt(e.target.value, 10) : null },
-              activeProject.isScheduled
-            )
-          }
-        >
-          <option value="">No Project</option>
+    <div style={{ maxWidth: 700, margin: '0 auto', padding: 24 }}>
+      <h1 style={{ fontSize: 24, fontWeight: 600 }}>To-Do List</h1>
+
+      <div style={{ marginBottom: 24 }}>
+        <input
+          value={newTask}
+          onChange={e => setNewTask(e.target.value)}
+          placeholder="New task"
+          style={{ width: '100%', padding: 10, marginBottom: 8 }}
+        />
+        <select value={newCategory} onChange={e => setNewCategory(e.target.value)}>
+          {Object.entries(CATEGORIES).map(([k, v]) =>
+            <option key={k} value={k}>{v.label}</option>
+          )}
         </select>
-      )}
-    </>
+        <select value={newProjectId} onChange={e => setNewProjectId(e.target.value)}>
+          <option value="">No project</option>
+          {projects.map(p => <option key={p.id} value={p.id}>{p.text}</option>)}
+        </select>
+        <button onClick={addTask}>Add Task</button>
+      </div>
+
+      <ul>
+        {taskItems.map(t => (
+          <li key={t.id}>
+            {t.text}
+            {t.project_id && (
+              <span style={{ marginLeft: 8, opacity: 0.6 }}>
+                (Project {t.project_id})
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+
+      <hr />
+
+      <h2>Scheduled</h2>
+      <input value={newScheduled} onChange={e => setNewScheduled(e.target.value)} placeholder="Scheduled task" />
+      <input type="date" value={newScheduledDate} onChange={e => setNewScheduledDate(e.target.value)} />
+      <select value={newScheduledProjectId} onChange={e => setNewScheduledProjectId(e.target.value)}>
+        <option value="">No project</option>
+        {projects.map(p => <option key={p.id} value={p.id}>{p.text}</option>)}
+      </select>
+      <button onClick={addScheduledItem}>Add Scheduled</button>
+
+      <ul>
+        {scheduled.map(s => (
+          <li key={s.id}>{s.text} — {s.date}</li>
+        ))}
+      </ul>
+    </div>
   )
 }
 
