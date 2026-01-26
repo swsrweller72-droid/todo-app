@@ -21,6 +21,8 @@ function TodoApp() {
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [projectFilter, setProjectFilter] = useState('all')
   const [scheduledProjectFilter, setScheduledProjectFilter] = useState('all')
+  const [habitCategoryFilter, setHabitCategoryFilter] = useState('all')
+  const [habitProjectFilter, setHabitProjectFilter] = useState('all')
   const [view, setView] = useState('todos')
   const [activeProject, setActiveProject] = useState(null)
   const [filter, setFilter] = useState('all')
@@ -30,6 +32,7 @@ function TodoApp() {
   
   const [newHabit, setNewHabit] = useState('')
   const [newHabitCategory, setNewHabitCategory] = useState('personal')
+  const [newHabitProjectId, setNewHabitProjectId] = useState('')
   const [newHabitGoal, setNewHabitGoal] = useState(7)
   const [showAddHabit, setShowAddHabit] = useState(false)
   const [editingHabit, setEditingHabit] = useState(null)
@@ -77,11 +80,13 @@ function TodoApp() {
     const { data } = await supabase.from('habits').insert([{
       text: newHabit.trim(),
       category: newHabitCategory,
+      project_id: newHabitProjectId || null,
       weekly_goal: newHabitGoal
     }]).select()
     if (data) {
       setHabits([data[0], ...habits])
       setNewHabit('')
+      setNewHabitProjectId('')
       setNewHabitGoal(7)
       setShowAddHabit(false)
     }
@@ -336,6 +341,10 @@ function TodoApp() {
     scheduledProjectFilter === 'all' || 
     (scheduledProjectFilter === 'none' ? !s.project_id : s.project_id === scheduledProjectFilter)
   )
+
+  const filteredHabits = habits
+    .filter(h => habitCategoryFilter === 'all' || h.category === habitCategoryFilter)
+    .filter(h => habitProjectFilter === 'all' || (habitProjectFilter === 'none' ? !h.project_id : h.project_id === habitProjectFilter))
   
   const usedOrders = categoryFilter === 'all'
     ? activeTasks.filter(t => t.global_focus_order !== null && !t.completed).map(t => t.global_focus_order)
@@ -489,6 +498,21 @@ function TodoApp() {
               <button onClick={() => setShowAddHabit(!showAddHabit)} style={{ padding: '6px 12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: '500' }}>{showAddHabit ? 'Cancel' : '+ Add Habit'}</button>
             </div>
 
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '8px' }}>
+              <button onClick={() => setHabitCategoryFilter('all')} style={{ padding: '6px 12px', borderRadius: '6px', border: habitCategoryFilter === 'all' ? '2px solid #64748b' : '1px solid #e2e8f0', cursor: 'pointer', fontSize: '11px', fontWeight: '500', background: habitCategoryFilter === 'all' ? '#f1f5f9' : 'white', color: '#1e293b' }}>All Categories</button>
+              {Object.entries(CATEGORIES).map(([key, { label, color, border }]) => (
+                <button key={key} onClick={() => setHabitCategoryFilter(key)} style={{ padding: '6px 12px', borderRadius: '6px', border: habitCategoryFilter === key ? `2px solid ${border}` : '1px solid #e2e8f0', cursor: 'pointer', fontSize: '11px', fontWeight: '500', background: habitCategoryFilter === key ? color : 'white', color: '#1e293b' }}>{label}</button>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '16px' }}>
+              <button onClick={() => setHabitProjectFilter('all')} style={{ padding: '6px 12px', borderRadius: '6px', border: habitProjectFilter === 'all' ? '2px solid #64748b' : '1px solid #e2e8f0', cursor: 'pointer', fontSize: '11px', fontWeight: '500', background: habitProjectFilter === 'all' ? '#f1f5f9' : 'white', color: '#1e293b' }}>All Projects</button>
+              <button onClick={() => setHabitProjectFilter('none')} style={{ padding: '6px 12px', borderRadius: '6px', border: habitProjectFilter === 'none' ? '2px solid #64748b' : '1px solid #e2e8f0', cursor: 'pointer', fontSize: '11px', fontWeight: '500', background: habitProjectFilter === 'none' ? '#f1f5f9' : 'white', color: '#1e293b' }}>No Project</button>
+              {projects.map(project => (
+                <button key={project.id} onClick={() => setHabitProjectFilter(project.id.toString())} style={{ padding: '6px 12px', borderRadius: '6px', border: habitProjectFilter === project.id.toString() ? '2px solid #64748b' : '1px solid #e2e8f0', cursor: 'pointer', fontSize: '11px', fontWeight: '500', background: habitProjectFilter === project.id.toString() ? '#f1f5f9' : 'white', color: '#1e293b' }}>{project.text}</button>
+              ))}
+            </div>
+
             {showAddHabit && (
               <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', marginBottom: '16px' }}>
                 <input 
@@ -497,10 +521,15 @@ function TodoApp() {
                   placeholder="Habit name (e.g., Exercise, Meditate)" 
                   style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px', marginBottom: '8px' }} 
                 />
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '12px', color: '#64748b' }}>Category:</span>
                   <select value={newHabitCategory} onChange={(e) => setNewHabitCategory(e.target.value)} style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}>
                     {Object.entries(CATEGORIES).map(([key, { label }]) => <option key={key} value={key}>{label}</option>)}
+                  </select>
+                  <span style={{ fontSize: '12px', color: '#64748b', marginLeft: '8px' }}>Project:</span>
+                  <select value={newHabitProjectId} onChange={(e) => setNewHabitProjectId(e.target.value)} style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}>
+                    <option value="">None</option>
+                    {projects.map(project => <option key={project.id} value={project.id.toString()}>{project.text}</option>)}
                   </select>
                   <span style={{ fontSize: '12px', color: '#64748b', marginLeft: '8px' }}>Weekly Goal:</span>
                   <input 
@@ -517,11 +546,11 @@ function TodoApp() {
               </div>
             )}
 
-            {habits.length === 0 ? (
-              <p style={{ fontSize: '14px', color: '#64748b', textAlign: 'center', padding: '24px' }}>No habits yet. Click &quot;+ Add Habit&quot; to create one!</p>
+            {filteredHabits.length === 0 ? (
+              <p style={{ fontSize: '14px', color: '#64748b', textAlign: 'center', padding: '24px' }}>No habits match your filters. {habits.length > 0 ? 'Try adjusting the filters above.' : 'Click "+ Add Habit" to create one!'}</p>
             ) : (
               <div>
-                {habits.map(habit => {
+                {filteredHabits.map(habit => {
                   const progress = getHabitProgress(habit.id, habit.weekly_goal)
                   const isCompleted = isHabitCompletedToday(habit.id)
                   const metGoal = progress.completed >= progress.goal
@@ -536,10 +565,15 @@ function TodoApp() {
                             onChange={(e) => setEditingHabit({ ...editingHabit, text: e.target.value })} 
                             style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px', marginBottom: '8px' }} 
                           />
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>
                             <span style={{ fontSize: '12px', color: '#64748b' }}>Category:</span>
                             <select value={editingHabit.category} onChange={(e) => setEditingHabit({ ...editingHabit, category: e.target.value })} style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}>
                               {Object.entries(CATEGORIES).map(([key, { label }]) => <option key={key} value={key}>{label}</option>)}
+                            </select>
+                            <span style={{ fontSize: '12px', color: '#64748b', marginLeft: '8px' }}>Project:</span>
+                            <select value={editingHabit.project_id?.toString() || ''} onChange={(e) => setEditingHabit({ ...editingHabit, project_id: e.target.value === '' ? null : e.target.value })} style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}>
+                              <option value="">None</option>
+                              {projects.map(project => <option key={project.id} value={project.id.toString()}>{project.text}</option>)}
                             </select>
                             <span style={{ fontSize: '12px', color: '#64748b', marginLeft: '8px' }}>Weekly Goal:</span>
                             <input 
@@ -553,7 +587,7 @@ function TodoApp() {
                             <span style={{ fontSize: '12px', color: '#64748b' }}>days/week</span>
                           </div>
                           <div style={{ display: 'flex', gap: '8px' }}>
-                            <button onClick={() => updateHabit(habit.id, { text: editingHabit.text, category: editingHabit.category, weekly_goal: editingHabit.weekly_goal })} style={{ flex: 1, padding: '8px 16px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>Save</button>
+                            <button onClick={() => updateHabit(habit.id, { text: editingHabit.text, category: editingHabit.category, project_id: editingHabit.project_id, weekly_goal: editingHabit.weekly_goal })} style={{ flex: 1, padding: '8px 16px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>Save</button>
                             <button onClick={() => setEditingHabit(null)} style={{ flex: 1, padding: '8px 16px', background: '#e2e8f0', color: '#475569', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>Cancel</button>
                           </div>
                         </div>
@@ -566,6 +600,7 @@ function TodoApp() {
                             style={{ width: '20px', height: '20px', cursor: 'pointer' }} 
                           />
                           <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', background: CATEGORIES[habit.category]?.color, color: CATEGORIES[habit.category]?.textColor, border: `1px solid ${CATEGORIES[habit.category]?.border}` }}>{CATEGORIES[habit.category]?.label}</span>
+                          {habit.project_id && <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' }}>📁 {getProjectName(habit.project_id)}</span>}
                           <span style={{ flex: 1, fontSize: '14px', fontWeight: '500' }}>{habit.text}</span>
                           <span style={{ fontSize: '13px', color: metGoal ? '#16a34a' : '#64748b', fontWeight: '500' }}>
                             {progress.completed}/{progress.goal} days {metGoal && '✅'}
