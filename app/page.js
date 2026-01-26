@@ -1,7 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import PasswordGate from '../components/PasswordGate'
 
 const CATEGORIES = {
   body: { label: 'Body', color: '#dbeafe', textColor: '#1e40af', border: '#93c5fd' },
@@ -11,7 +10,7 @@ const CATEGORIES = {
   spiritual: { label: 'Spiritual', color: '#ffe4e6', textColor: '#9f1239', border: '#fda4af' },
 }
 
-const APP_PASSWORD = '4Iowlbnaf4!'
+
 
 function TodoApp() {
   const [tasks, setTasks] = useState([])
