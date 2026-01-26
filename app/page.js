@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+
 const CATEGORIES = {
   body: { label: 'Body', color: '#dbeafe', textColor: '#1e40af', border: '#93c5fd' },
   mind: { label: 'Mind', color: '#d1fae5', textColor: '#065f46', border: '#6ee7b7' },
@@ -9,11 +10,8 @@ const CATEGORIES = {
   spiritual: { label: 'Spiritual', color: '#ffe4e6', textColor: '#9f1239', border: '#fda4af' },
 }
 
-
-
 function TodoApp() {
   const [tasks, setTasks] = useState([])
-  const [scheduled, setScheduled] = useState([])
   const [habits, setHabits] = useState([])
   const [habitCompletions, setHabitCompletions] = useState([])
   const [newTask, setNewTask] = useState('')
@@ -34,15 +32,11 @@ function TodoApp() {
   const [showAddHabit, setShowAddHabit] = useState(false)
   const [editingHabit, setEditingHabit] = useState(null)
   
-  const [newScheduled, setNewScheduled] = useState('')
-  const [newScheduledCategory, setNewScheduledCategory] = useState('personal')
-  const [newScheduledProjectId, setNewScheduledProjectId] = useState('')
   const [newScheduledDate, setNewScheduledDate] = useState('')
   const [newScheduledTime, setNewScheduledTime] = useState('')
 
   useEffect(() => {
     fetchTasks()
-    fetchScheduled()
     fetchHabits()
     fetchHabitCompletions()
   }, [])
@@ -50,11 +44,6 @@ function TodoApp() {
   async function fetchTasks() {
     const { data } = await supabase.from('tasks').select('*').order('created_at', { ascending: false })
     if (data) setTasks(data)
-  }
-
-  async function fetchScheduled() {
-    const { data } = await supabase.from('scheduled_items').select('*').order('date', { ascending: true })
-    if (data) setScheduled(data)
   }
 
   async function fetchHabits() {
@@ -133,14 +122,17 @@ function TodoApp() {
     const { data } = await supabase.from('tasks').insert([{ 
       text: newTask.trim(), 
       category: newCategory,
-    project_id: newProjectId || null,
-
+      project_id: newProjectId || null,
+      scheduled_date: newScheduledDate || null,
+      scheduled_time: newScheduledTime || null,
       is_task: true 
     }]).select()
     if (data) {
       setTasks([data[0], ...tasks])
       setNewTask('')
       setNewProjectId('')
+      setNewScheduledDate('')
+      setNewScheduledTime('')
     }
   }
 
@@ -163,24 +155,6 @@ function TodoApp() {
     }
   }
 
-  async function addScheduledItem() {
-    if (!newScheduled.trim() || !newScheduledDate) return
-    const { data } = await supabase.from('scheduled_items').insert([{ 
-      text: newScheduled.trim(), 
-      category: newScheduledCategory,
-      project_id: newScheduledProjectId || null,
-      date: newScheduledDate,
-      time: newScheduledTime || null
-    }]).select()
-    if (data) {
-      setScheduled([...scheduled, data[0]].sort((a,b) => new Date(a.date) - new Date(b.date)))
-      setNewScheduled('')
-      setNewScheduledProjectId('')
-      setNewScheduledDate('')
-      setNewScheduledTime('')
-    }
-  }
-
   async function toggleComplete(id) {
     const task = tasks.find(t => t.id === id)
     const { data } = await supabase.from('tasks').update({ 
@@ -191,23 +165,9 @@ function TodoApp() {
     if (data) setTasks(tasks.map(t => t.id === id ? data[0] : t))
   }
 
-  async function toggleScheduledComplete(id) {
-    const item = scheduled.find(s => s.id === id)
-    const { data } = await supabase.from('scheduled_items').update({ 
-      completed: !item.completed 
-    }).eq('id', id).select()
-    if (data) setScheduled(scheduled.map(s => s.id === id ? data[0] : s))
-  }
-
   async function deleteTask(id) {
     await supabase.from('tasks').delete().eq('id', id)
     setTasks(tasks.filter(t => t.id !== id))
-    if (activeProject?.id === id) setActiveProject(null)
-  }
-
-  async function deleteScheduled(id) {
-    await supabase.from('scheduled_items').delete().eq('id', id)
-    setScheduled(scheduled.filter(s => s.id !== id))
     if (activeProject?.id === id) setActiveProject(null)
   }
 
@@ -244,16 +204,13 @@ function TodoApp() {
     }
   }
 
-  async function updateProject(id, updates, isScheduled = false) {
-    const table = isScheduled ? 'scheduled_items' : 'tasks'
-    const { data } = await supabase.from(table).update(updates).eq('id', id).select()
+  async function updateTask(id, updates) {
+    const { data } = await supabase.from('tasks').update(updates).eq('id', id).select()
     if (data) {
-      if (isScheduled) {
-        setScheduled(scheduled.map(s => s.id === id ? data[0] : s))
-      } else {
-        setTasks(tasks.map(t => t.id === id ? data[0] : t))
+      setTasks(tasks.map(t => t.id === id ? data[0] : t))
+      if (activeProject?.id === id) {
+        setActiveProject({ ...activeProject, ...data[0] })
       }
-      setActiveProject({ ...activeProject, ...data[0] })
     }
   }
 
@@ -268,15 +225,23 @@ function TodoApp() {
     return project ? project.text : null
   }
 
+  // Scheduled items are tasks with a scheduled_date
+  const scheduledTasks = activeTasks
+    .filter(t => t.scheduled_date !== null)
+    .sort((a, b) => new Date(a.scheduled_date) - new Date(b.scheduled_date))
+
+  // Focus queue includes ALL tasks (scheduled or not) that have a focus order
   const focusQueue = categoryFilter === 'all'
     ? activeTasks.filter(t => t.global_focus_order !== null && !t.completed && (projectFilter === 'all' || (projectFilter === 'none' ? !t.project_id : t.project_id === projectFilter))).sort((a, b) => a.global_focus_order - b.global_focus_order)
     : activeTasks.filter(t => t.category === categoryFilter && t.category_focus_order !== null && !t.completed && (projectFilter === 'all' || (projectFilter === 'none' ? !t.project_id : t.project_id === projectFilter))).sort((a, b) => a.category_focus_order - b.category_focus_order)
   
+  // Other tasks are unscheduled tasks without focus order
   const otherTasks = activeTasks
     .filter(t => filter === 'all' ? true : filter === 'active' ? !t.completed : t.completed)
     .filter(t => categoryFilter === 'all' || t.category === categoryFilter)
     .filter(t => projectFilter === 'all' || (projectFilter === 'none' ? !t.project_id : t.project_id === projectFilter))
     .filter(t => getFocusOrder(t) === null || t.completed)
+    .filter(t => !t.scheduled_date) // Exclude scheduled tasks from backlog
 
   const filteredProjects = projects.filter(p => categoryFilter === 'all' || p.category === categoryFilter)
   
@@ -338,11 +303,12 @@ function TodoApp() {
               <p style={{ fontSize: '14px', color: '#6366f1', opacity: 0.7 }}>Assign numbers 1-5 to tasks below to build your focus queue.</p>
             ) : (
               focusQueue.map((task, i) => (
-                <div key={task.id} onClick={() => setActiveProject({ ...task, isScheduled: false })} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', borderRadius: '8px', background: i === 0 ? 'white' : 'rgba(255,255,255,0.6)', border: i === 0 ? '2px solid #a5b4fc' : '1px solid #e0e7ff', marginBottom: '8px', cursor: 'pointer' }}>
+                <div key={task.id} onClick={() => setActiveProject(task)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', borderRadius: '8px', background: i === 0 ? 'white' : 'rgba(255,255,255,0.6)', border: i === 0 ? '2px solid #a5b4fc' : '1px solid #e0e7ff', marginBottom: '8px', cursor: 'pointer' }}>
                   <span style={{ width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', background: i === 0 ? '#4f46e5' : '#e0e7ff', color: i === 0 ? 'white' : '#4f46e5', fontSize: i === 0 ? '18px' : '14px' }}>{getFocusOrder(task)}</span>
                   <input type="checkbox" checked={task.completed} onChange={(e) => { e.stopPropagation(); toggleComplete(task.id) }} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
                   <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '12px', background: CATEGORIES[task.category]?.color, color: CATEGORIES[task.category]?.textColor, border: `1px solid ${CATEGORIES[task.category]?.border}` }}>{CATEGORIES[task.category]?.label}</span>
                   {task.project_id && <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' }}>📁 {getProjectName(task.project_id)}</span>}
+                  {task.scheduled_date && <span style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '4px', background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }}>📅</span>}
                   <span style={{ flex: 1, fontWeight: i === 0 ? '500' : '400' }}>{task.text}</span>
                   {task.claude_project_url && <span style={{ fontSize: '12px', padding: '2px 6px', borderRadius: '4px', background: '#ffedd5', color: '#c2410c', fontWeight: '500' }}>✦</span>}
                   <button onClick={(e) => { e.stopPropagation(); setFocusOrder(task.id, '') }} style={{ padding: '4px 8px', color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '12px', opacity: 0.5 }}>✕</button>
@@ -363,49 +329,23 @@ function TodoApp() {
 
           <div style={{ marginBottom: '24px' }}>
             <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#1e293b', marginBottom: '16px' }}>📅 Scheduled Tasks</h2>
-            <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '16px', marginBottom: '16px' }}>
-              <div style={{ fontSize: '14px', fontWeight: '500', color: '#475569', marginBottom: '12px' }}>Add Scheduled Task</div>
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                <input value={newScheduled} onChange={(e) => setNewScheduled(e.target.value)} placeholder="What's scheduled?" style={{ flex: 1, padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', outline: 'none' }} />
-                <button onClick={addScheduledItem} style={{ padding: '10px 16px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>Add</button>
-              </div>
-              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '12px', color: '#64748b' }}>Category:</span>
-                  <select value={newScheduledCategory} onChange={(e) => setNewScheduledCategory(e.target.value)} style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}>
-                    {Object.entries(CATEGORIES).map(([key, { label }]) => <option key={key} value={key}>{label}</option>)}
-                  </select>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '12px', color: '#64748b' }}>Project:</span>
-                  <select value={newScheduledProjectId} onChange={(e) => setNewScheduledProjectId(e.target.value)} style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}>
-                    <option value="">None</option>
-                    {projects.map(project => <option key={project.id} value={project.id}>{project.text}</option>)}
-                  </select>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '12px', color: '#64748b' }}>Date:</span>
-                  <input type="date" value={newScheduledDate} onChange={(e) => setNewScheduledDate(e.target.value)} style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }} />
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '12px', color: '#64748b' }}>Time:</span>
-                  <input type="time" value={newScheduledTime} onChange={(e) => setNewScheduledTime(e.target.value)} style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }} />
-                </div>
-              </div>
-            </div>
             <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-              {scheduled.length === 0 ? (
-                <p style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>No scheduled tasks yet.</p>
+              {scheduledTasks.length === 0 ? (
+                <p style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>No scheduled tasks yet. Add a date when creating a task below!</p>
               ) : (
-                scheduled.map(item => (
-                  <div key={item.id} onClick={() => setActiveProject({ ...item, isScheduled: true })} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={item.completed} onChange={(e) => { e.stopPropagation(); toggleScheduledComplete(item.id) }} onClick={(e) => e.stopPropagation()} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
-                    <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '12px', background: CATEGORIES[item.category]?.color, color: CATEGORIES[item.category]?.textColor, border: `1px solid ${CATEGORIES[item.category]?.border}` }}>{CATEGORIES[item.category]?.label}</span>
-                    {item.project_id && <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' }}>📁 {getProjectName(item.project_id)}</span>}
-                    <span style={{ flex: 1, fontSize: '14px', textDecoration: item.completed ? 'line-through' : 'none', color: item.completed ? '#9ca3af' : '#374151' }}>{item.text}</span>
-                    {item.claude_project_url && <span style={{ fontSize: '12px', padding: '2px 6px', borderRadius: '4px', background: '#ffedd5', color: '#c2410c', fontWeight: '500' }}>✦</span>}
-                    <span style={{ fontSize: '12px', color: '#64748b', background: '#f1f5f9', padding: '4px 8px', borderRadius: '4px' }}>{formatDate(item.date)}{item.time && ` · ${formatTime(item.time)}`}</span>
-                    <button onClick={(e) => { e.stopPropagation(); deleteScheduled(item.id) }} style={{ padding: '4px 8px', color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '12px', opacity: 0.5 }}>Delete</button>
+                scheduledTasks.map(task => (
+                  <div key={task.id} onClick={() => setActiveProject(task)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
+                    <select value={getFocusOrder(task) || ''} onChange={(e) => { e.stopPropagation(); setFocusOrder(task.id, e.target.value) }} onClick={(e) => e.stopPropagation()} disabled={task.completed} style={{ width: '50px', padding: '4px', border: '1px solid #d1d5db', borderRadius: '4px', textAlign: 'center', fontSize: '14px' }}>
+                      <option value="">—</option>
+                      {[1,2,3,4,5].map(n => <option key={n} value={n} disabled={usedOrders.includes(n)}>{n}</option>)}
+                    </select>
+                    <input type="checkbox" checked={task.completed} onChange={(e) => { e.stopPropagation(); toggleComplete(task.id) }} onClick={(e) => e.stopPropagation()} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
+                    <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '12px', background: CATEGORIES[task.category]?.color, color: CATEGORIES[task.category]?.textColor, border: `1px solid ${CATEGORIES[task.category]?.border}` }}>{CATEGORIES[task.category]?.label}</span>
+                    {task.project_id && <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' }}>📁 {getProjectName(task.project_id)}</span>}
+                    <span style={{ flex: 1, fontSize: '14px', textDecoration: task.completed ? 'line-through' : 'none', color: task.completed ? '#9ca3af' : '#374151' }}>{task.text}</span>
+                    {task.claude_project_url && <span style={{ fontSize: '12px', padding: '2px 6px', borderRadius: '4px', background: '#ffedd5', color: '#c2410c', fontWeight: '500' }}>✦</span>}
+                    <span style={{ fontSize: '12px', color: '#64748b', background: '#f1f5f9', padding: '4px 8px', borderRadius: '4px' }}>{formatDate(task.scheduled_date)}{task.scheduled_time && ` · ${formatTime(task.scheduled_time)}`}</span>
+                    <button onClick={(e) => { e.stopPropagation(); deleteTask(task.id) }} style={{ padding: '4px 8px', color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '12px', opacity: 0.5 }}>Delete</button>
                   </div>
                 ))
               )}
@@ -520,7 +460,7 @@ function TodoApp() {
               <input value={newTask} onChange={(e) => setNewTask(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addTask()} placeholder="What needs to be done?" style={{ flex: 1, padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', outline: 'none' }} />
               <button onClick={addTask} style={{ padding: '10px 16px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>Add</button>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
               <span style={{ fontSize: '12px', color: '#64748b' }}>Category:</span>
               <select value={newCategory} onChange={(e) => setNewCategory(e.target.value)} style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}>
                 {Object.entries(CATEGORIES).map(([key, { label }]) => <option key={key} value={key}>{label}</option>)}
@@ -528,8 +468,13 @@ function TodoApp() {
               <span style={{ fontSize: '12px', color: '#64748b', marginLeft: '8px' }}>Project:</span>
               <select value={newProjectId} onChange={(e) => setNewProjectId(e.target.value)} style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}>
                 <option value="">None</option>
-                {projects.map(project => <option key={project.id} value={project.id}>{project.text}</option>)}
+                {projects.map(project => <option key={project.id} value={project.id.toString()}>{project.text}</option>)}
               </select>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '12px', color: '#64748b' }}>Schedule (optional):</span>
+              <input type="date" value={newScheduledDate} onChange={(e) => setNewScheduledDate(e.target.value)} style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }} />
+              <input type="time" value={newScheduledTime} onChange={(e) => setNewScheduledTime(e.target.value)} style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }} />
             </div>
           </div>
 
@@ -548,7 +493,7 @@ function TodoApp() {
               <p style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>No tasks yet. Add one above!</p>
             ) : (
               otherTasks.map(task => (
-                <div key={task.id} onClick={() => setActiveProject({ ...task, isScheduled: false })} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
+                <div key={task.id} onClick={() => setActiveProject(task)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
                   <select value={getFocusOrder(task) || ''} onChange={(e) => { e.stopPropagation(); setFocusOrder(task.id, e.target.value) }} onClick={(e) => e.stopPropagation()} disabled={task.completed} style={{ width: '50px', padding: '4px', border: '1px solid #d1d5db', borderRadius: '4px', textAlign: 'center', fontSize: '14px' }}>
                     <option value="">—</option>
                     {[1,2,3,4,5].map(n => <option key={n} value={n} disabled={usedOrders.includes(n)}>{n}</option>)}
@@ -615,7 +560,7 @@ function TodoApp() {
               <p style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>No projects yet. Create one above!</p>
             ) : (
               filteredProjects.map(project => (
-                <div key={project.id} onClick={() => setActiveProject({ ...project, isScheduled: false })} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
+                <div key={project.id} onClick={() => setActiveProject(project)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
                   <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '12px', background: CATEGORIES[project.category]?.color, color: CATEGORIES[project.category]?.textColor, border: `1px solid ${CATEGORIES[project.category]?.border}` }}>{CATEGORIES[project.category]?.label}</span>
                   <span style={{ flex: 1, fontSize: '14px' }}>{project.text} <span style={{ color: '#64748b', fontSize: '12px' }}>({getProjectTaskCount(project.id)} tasks)</span></span>
                   {project.claude_project_url && <span style={{ fontSize: '12px', padding: '2px 6px', borderRadius: '4px', background: '#ffedd5', color: '#c2410c', fontWeight: '500' }}>✦</span>}
@@ -636,39 +581,59 @@ function TodoApp() {
             <div style={{ padding: '16px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'white' }}>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '12px', background: CATEGORIES[activeProject.category]?.color, color: CATEGORIES[activeProject.category]?.textColor, border: `1px solid ${CATEGORIES[activeProject.category]?.border}` }}>{CATEGORIES[activeProject.category]?.label}</span>
-                {activeProject.isScheduled && <span style={{ fontSize: '12px', color: '#64748b' }}>{formatDate(activeProject.date)}</span>}
+                {activeProject.scheduled_date && <span style={{ fontSize: '12px', color: '#64748b' }}>{formatDate(activeProject.scheduled_date)}</span>}
               </div>
               <button onClick={() => setActiveProject(null)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#9ca3af' }}>✕</button>
             </div>
             <div style={{ padding: '16px' }}>
-              <input value={activeProject.text} onChange={(e) => updateProject(activeProject.id, { text: e.target.value }, activeProject.isScheduled)} placeholder={activeProject.is_task ? "Task name..." : "Project name..."} style={{ width: '100%', fontSize: '20px', fontWeight: '600', border: 'none', outline: 'none', marginBottom: '16px' }} />
+              <input value={activeProject.text} onChange={(e) => updateTask(activeProject.id, { text: e.target.value })} placeholder={activeProject.is_task ? "Task name..." : "Project name..."} style={{ width: '100%', fontSize: '20px', fontWeight: '600', border: 'none', outline: 'none', marginBottom: '16px' }} />
 
               <div style={{ marginBottom: '16px' }}>
-  <label style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Category</label>
-  <select value={activeProject.category} onChange={(e) => updateProject(activeProject.id, { category: e.target.value }, activeProject.isScheduled)} style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}>
-    {Object.entries(CATEGORIES).map(([key, { label }]) => <option key={key} value={key}>{label}</option>)}
-  </select>
-</div>
+                <label style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Category</label>
+                <select value={activeProject.category} onChange={(e) => updateTask(activeProject.id, { category: e.target.value })} style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}>
+                  {Object.entries(CATEGORIES).map(([key, { label }]) => <option key={key} value={key}>{label}</option>)}
+                </select>
+              </div>
 
-<div style={{ marginBottom: '16px' }}>
-  <label style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Assign to Project</label>
-  <select value={activeProject.project_id?.toString() || ''} onChange={(e) => updateProject(activeProject.id, { project_id: e.target.value === '' ? null : e.target.value }, activeProject.isScheduled)} style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}>
-    <option value="">No Project</option>
-    {projects.map(project => <option key={project.id} value={project.id.toString()}>{project.text}</option>)}
-  </select>
-</div>
+              {activeProject.is_task && (
+                <>
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Assign to Project</label>
+                    <select value={activeProject.project_id?.toString() || ''} onChange={(e) => updateTask(activeProject.id, { project_id: e.target.value === '' ? null : e.target.value })} style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}>
+                      <option value="">No Project</option>
+                      {projects.map(project => <option key={project.id} value={project.id.toString()}>{project.text}</option>)}
+                    </select>
+                  </div>
 
-{activeProject.is_task && !activeProject.isScheduled && (
-  <div style={{ marginBottom: '16px' }}>
-                  <label style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Assign to Project</label>
-                  <select value={activeProject.project_id || ''} onChange={(e) => updateProject(activeProject.id, { project_id: e.target.value === '' ? null : e.target.value }, activeProject.isScheduled)} style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}>
-                    <option value="">No Project</option>
-                    {projects.map(project => <option key={project.id} value={project.id}>{project.text}</option>)}
-                  </select>
-                </div>
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Schedule (optional)</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input 
+                        type="date" 
+                        value={activeProject.scheduled_date || ''} 
+                        onChange={(e) => updateTask(activeProject.id, { scheduled_date: e.target.value || null })} 
+                        style={{ flex: 1, padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }} 
+                      />
+                      <input 
+                        type="time" 
+                        value={activeProject.scheduled_time || ''} 
+                        onChange={(e) => updateTask(activeProject.id, { scheduled_time: e.target.value || null })} 
+                        style={{ flex: 1, padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }} 
+                      />
+                    </div>
+                    {activeProject.scheduled_date && (
+                      <button 
+                        onClick={() => updateTask(activeProject.id, { scheduled_date: null, scheduled_time: null })} 
+                        style={{ marginTop: '8px', padding: '6px 12px', background: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}
+                      >
+                        Remove Schedule
+                      </button>
+                    )}
+                  </div>
+                </>
               )}
 
-              {!activeProject.isScheduled && activeProject.is_task && (
+              {activeProject.is_task && (
                 <div style={{ background: '#eef2ff', padding: '12px', borderRadius: '8px', border: '1px solid #c7d2fe', marginBottom: '16px' }}>
                   <div style={{ fontSize: '12px', fontWeight: '500', color: '#4338ca', textTransform: 'uppercase', marginBottom: '8px' }}>Current Priority</div>
                   <div style={{ display: 'flex', gap: '16px', fontSize: '14px' }}>
@@ -680,19 +645,19 @@ function TodoApp() {
 
               <div style={{ background: 'linear-gradient(to right, #fff7ed, #fffbeb)', padding: '16px', borderRadius: '8px', border: '1px solid #fed7aa', marginBottom: '24px' }}>
                 <label style={{ fontSize: '12px', fontWeight: '500', color: '#c2410c', textTransform: 'uppercase', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>✦ Claude Project</label>
-                <input value={activeProject.claude_project_url || ''} onChange={(e) => updateProject(activeProject.id, { claude_project_url: e.target.value }, activeProject.isScheduled)} placeholder="https://claude.ai/project/..." style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', marginTop: '8px' }} />
+                <input value={activeProject.claude_project_url || ''} onChange={(e) => updateTask(activeProject.id, { claude_project_url: e.target.value })} placeholder="https://claude.ai/project/..." style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', marginTop: '8px' }} />
                 {activeProject.claude_project_url && <a href={activeProject.claude_project_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '14px', color: '#c2410c', marginTop: '8px', display: 'inline-block' }}>Open Claude Project →</a>}
               </div>
 
               <div style={{ marginBottom: '24px' }}>
                 <label style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Other Link</label>
-                <input value={activeProject.link || ''} onChange={(e) => updateProject(activeProject.id, { link: e.target.value }, activeProject.isScheduled)} placeholder="https://..." style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }} />
+                <input value={activeProject.link || ''} onChange={(e) => updateTask(activeProject.id, { link: e.target.value })} placeholder="https://..." style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }} />
                 {activeProject.link && <a href={activeProject.link} target="_blank" rel="noopener noreferrer" style={{ fontSize: '14px', color: '#2563eb', marginTop: '8px', display: 'inline-block' }}>Open link →</a>}
               </div>
 
               <div style={{ marginBottom: '24px' }}>
                 <label style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Notes</label>
-                <textarea value={activeProject.notes || ''} onChange={(e) => updateProject(activeProject.id, { notes: e.target.value }, activeProject.isScheduled)} placeholder="Add notes, context, or details..." style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', minHeight: '120px', resize: 'vertical' }} />
+                <textarea value={activeProject.notes || ''} onChange={(e) => updateTask(activeProject.id, { notes: e.target.value })} placeholder="Add notes, context, or details..." style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', minHeight: '120px', resize: 'vertical' }} />
               </div>
             </div>
           </div>
@@ -701,6 +666,7 @@ function TodoApp() {
     </div>
   )
 }
+
 export default function Home() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
