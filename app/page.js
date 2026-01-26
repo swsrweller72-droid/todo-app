@@ -695,9 +695,5 @@ function TodoApp() {
 }
 
 export default function Home() {
-  return (
-    <PasswordGate correctPassword={APP_PASSWORD}>
-      <TodoApp />
-    </PasswordGate>
-  )
+ return <TodoApp />
 }
