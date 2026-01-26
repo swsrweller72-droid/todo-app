@@ -10,8 +10,6 @@ const CATEGORIES = {
   spiritual: { label: 'Spiritual', color: '#ffe4e6', textColor: '#9f1239', border: '#fda4af' },
 }
 
-
-
 function TodoApp() {
   const [tasks, setTasks] = useState([])
   const [scheduled, setScheduled] = useState([])
@@ -22,6 +20,7 @@ function TodoApp() {
   const [newProjectId, setNewProjectId] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [projectFilter, setProjectFilter] = useState('all')
+  const [scheduledProjectFilter, setScheduledProjectFilter] = useState('all')
   const [view, setView] = useState('todos')
   const [activeProject, setActiveProject] = useState(null)
   const [filter, setFilter] = useState('all')
@@ -134,7 +133,7 @@ function TodoApp() {
     const { data } = await supabase.from('tasks').insert([{ 
       text: newTask.trim(), 
       category: newCategory,
-      project_id: newProjectId === '' ? null : newProjectId,
+      project_id: newProjectId || null,
       is_task: true 
     }]).select()
     if (data) {
@@ -178,6 +177,59 @@ function TodoApp() {
       setNewScheduledProjectId('')
       setNewScheduledDate('')
       setNewScheduledTime('')
+    }
+  }
+
+  async function convertToScheduled(taskId) {
+    const task = tasks.find(t => t.id === taskId)
+    if (!task) return
+    
+    const today = new Date().toISOString().split('T')[0]
+    
+    // Create in scheduled_items
+    const { data } = await supabase.from('scheduled_items').insert([{
+      text: task.text,
+      category: task.category,
+      project_id: task.project_id,
+      completed: task.completed,
+      claude_project_url: task.claude_project_url,
+      link: task.link,
+      notes: task.notes,
+      date: today,
+      time: null
+    }]).select()
+    
+    if (data) {
+      // Delete from tasks
+      await supabase.from('tasks').delete().eq('id', taskId)
+      setTasks(tasks.filter(t => t.id !== taskId))
+      setScheduled([...scheduled, data[0]].sort((a,b) => new Date(a.date) - new Date(b.date)))
+      setActiveProject({ ...data[0], isScheduled: true })
+    }
+  }
+
+  async function convertToUnscheduled(scheduledId) {
+    const item = scheduled.find(s => s.id === scheduledId)
+    if (!item) return
+    
+    // Create in tasks
+    const { data } = await supabase.from('tasks').insert([{
+      text: item.text,
+      category: item.category,
+      project_id: item.project_id,
+      completed: item.completed,
+      claude_project_url: item.claude_project_url,
+      link: item.link,
+      notes: item.notes,
+      is_task: true
+    }]).select()
+    
+    if (data) {
+      // Delete from scheduled_items
+      await supabase.from('scheduled_items').delete().eq('id', scheduledId)
+      setScheduled(scheduled.filter(s => s.id !== scheduledId))
+      setTasks([data[0], ...tasks])
+      setActiveProject({ ...data[0], isScheduled: false })
     }
   }
 
@@ -280,6 +332,11 @@ function TodoApp() {
 
   const filteredProjects = projects.filter(p => categoryFilter === 'all' || p.category === categoryFilter)
   
+  const filteredScheduled = scheduled.filter(s => 
+    scheduledProjectFilter === 'all' || 
+    (scheduledProjectFilter === 'none' ? !s.project_id : s.project_id === scheduledProjectFilter)
+  )
+  
   const usedOrders = categoryFilter === 'all'
     ? activeTasks.filter(t => t.global_focus_order !== null && !t.completed).map(t => t.global_focus_order)
     : activeTasks.filter(t => t.category === categoryFilter && t.category_focus_order !== null && !t.completed).map(t => t.category_focus_order)
@@ -362,7 +419,18 @@ function TodoApp() {
           </div>
 
           <div style={{ marginBottom: '24px' }}>
-            <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#1e293b', marginBottom: '16px' }}>📅 Scheduled Tasks</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#1e293b' }}>📅 Scheduled Tasks</h2>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '16px' }}>
+              <button onClick={() => setScheduledProjectFilter('all')} style={{ padding: '6px 12px', borderRadius: '6px', border: scheduledProjectFilter === 'all' ? '2px solid #64748b' : '1px solid #e2e8f0', cursor: 'pointer', fontSize: '12px', fontWeight: '500', background: scheduledProjectFilter === 'all' ? '#f1f5f9' : 'white', color: '#1e293b' }}>All Projects</button>
+              <button onClick={() => setScheduledProjectFilter('none')} style={{ padding: '6px 12px', borderRadius: '6px', border: scheduledProjectFilter === 'none' ? '2px solid #64748b' : '1px solid #e2e8f0', cursor: 'pointer', fontSize: '12px', fontWeight: '500', background: scheduledProjectFilter === 'none' ? '#f1f5f9' : 'white', color: '#1e293b' }}>No Project</button>
+              {projects.map(project => (
+                <button key={project.id} onClick={() => setScheduledProjectFilter(project.id.toString())} style={{ padding: '6px 12px', borderRadius: '6px', border: scheduledProjectFilter === project.id.toString() ? '2px solid #64748b' : '1px solid #e2e8f0', cursor: 'pointer', fontSize: '12px', fontWeight: '500', background: scheduledProjectFilter === project.id.toString() ? '#f1f5f9' : 'white', color: '#1e293b' }}>{project.text}</button>
+              ))}
+            </div>
+            
             <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '16px', marginBottom: '16px' }}>
               <div style={{ fontSize: '14px', fontWeight: '500', color: '#475569', marginBottom: '12px' }}>Add Scheduled Task</div>
               <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
@@ -380,7 +448,7 @@ function TodoApp() {
                   <span style={{ fontSize: '12px', color: '#64748b' }}>Project:</span>
                   <select value={newScheduledProjectId} onChange={(e) => setNewScheduledProjectId(e.target.value)} style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}>
                     <option value="">None</option>
-                    {projects.map(project => <option key={project.id} value={project.id}>{project.text}</option>)}
+                    {projects.map(project => <option key={project.id} value={project.id.toString()}>{project.text}</option>)}
                   </select>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -394,10 +462,10 @@ function TodoApp() {
               </div>
             </div>
             <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-              {scheduled.length === 0 ? (
+              {filteredScheduled.length === 0 ? (
                 <p style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>No scheduled tasks yet.</p>
               ) : (
-                scheduled.map(item => (
+                filteredScheduled.map(item => (
                   <div key={item.id} onClick={() => setActiveProject({ ...item, isScheduled: true })} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
                     <input type="checkbox" checked={item.completed} onChange={(e) => { e.stopPropagation(); toggleScheduledComplete(item.id) }} onClick={(e) => e.stopPropagation()} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
                     <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '12px', background: CATEGORIES[item.category]?.color, color: CATEGORIES[item.category]?.textColor, border: `1px solid ${CATEGORIES[item.category]?.border}` }}>{CATEGORIES[item.category]?.label}</span>
@@ -528,7 +596,7 @@ function TodoApp() {
               <span style={{ fontSize: '12px', color: '#64748b', marginLeft: '8px' }}>Project:</span>
               <select value={newProjectId} onChange={(e) => setNewProjectId(e.target.value)} style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}>
                 <option value="">None</option>
-                {projects.map(project => <option key={project.id} value={project.id}>{project.text}</option>)}
+                {projects.map(project => <option key={project.id} value={project.id.toString()}>{project.text}</option>)}
               </select>
             </div>
           </div>
@@ -650,13 +718,46 @@ function TodoApp() {
                 </select>
               </div>
 
-              {activeProject.is_task && (
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Assign to Project</label>
+                <select value={activeProject.project_id?.toString() || ''} onChange={(e) => updateProject(activeProject.id, { project_id: e.target.value === '' ? null : e.target.value }, activeProject.isScheduled)} style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}>
+                  <option value="">No Project</option>
+                  {projects.map(project => <option key={project.id} value={project.id.toString()}>{project.text}</option>)}
+                </select>
+              </div>
+
+              {activeProject.isScheduled ? (
                 <div style={{ marginBottom: '16px' }}>
-                  <label style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Assign to Project</label>
-                  <select value={activeProject.project_id || ''} onChange={(e) => updateProject(activeProject.id, { project_id: e.target.value === '' ? null : e.target.value }, activeProject.isScheduled)} style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}>
-                    <option value="">No Project</option>
-                    {projects.map(project => <option key={project.id} value={project.id}>{project.text}</option>)}
-                  </select>
+                  <label style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Schedule</label>
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                    <input 
+                      type="date" 
+                      value={activeProject.date || ''} 
+                      onChange={(e) => updateProject(activeProject.id, { date: e.target.value }, true)} 
+                      style={{ flex: 1, padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }} 
+                    />
+                    <input 
+                      type="time" 
+                      value={activeProject.time || ''} 
+                      onChange={(e) => updateProject(activeProject.id, { time: e.target.value || null }, true)} 
+                      style={{ flex: 1, padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }} 
+                    />
+                  </div>
+                  <button 
+                    onClick={() => convertToUnscheduled(activeProject.id)} 
+                    style={{ padding: '8px 16px', background: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500', width: '100%' }}
+                  >
+                    🔄 Remove Schedule (Move to Backlog)
+                  </button>
+                </div>
+              ) : activeProject.is_task && (
+                <div style={{ marginBottom: '16px' }}>
+                  <button 
+                    onClick={() => convertToScheduled(activeProject.id)} 
+                    style={{ padding: '8px 16px', background: '#dbeafe', color: '#1e40af', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500', width: '100%' }}
+                  >
+                    📅 Add Schedule
+                  </button>
                 </div>
               )}
 
@@ -693,6 +794,7 @@ function TodoApp() {
     </div>
   )
 }
+
 export default function Home() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
