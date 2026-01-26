@@ -693,7 +693,38 @@ function TodoApp() {
     </div>
   )
 }
-
 export default function Home() {
- return <TodoApp />
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user)
+      setLoading(false)
+    })
+  }, [])
+
+  if (loading) return null
+
+  if (!user) {
+    return (
+      <div style={{ padding: 40 }}>
+        <h2>Sign in</h2>
+        <button
+          onClick={async () => {
+            const email = prompt('Enter your email')
+            if (!email) return
+            await supabase.auth.signInWithOtp({ email })
+            alert('Check your email for the login link')
+          }}
+        >
+          Email login
+        </button>
+      </div>
+    )
+  }
+
+  return <TodoApp />
 }
+
+
