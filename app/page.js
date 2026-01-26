@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-
+project_id
 const CATEGORIES = {
   body: { label: 'Body', color: '#dbeafe', textColor: '#1e40af', border: '#93c5fd' },
   mind: { label: 'Mind', color: '#d1fae5', textColor: '#065f46', border: '#6ee7b7' },
