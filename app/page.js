@@ -401,7 +401,7 @@ function TodoApp() {
             <div style={{ fontSize: '18px', fontWeight: '600', color: '#312e81', marginBottom: '4px' }}>🎯 Deadlines Right Now</div>
             <div style={{ fontSize: '12px', color: '#6366f1', marginBottom: '12px', opacity: 0.7 }}>{categoryFilter === 'all' ? 'Top 5 priorities across all categories' : `Top 5 priorities within ${CATEGORIES[categoryFilter]?.label}`}</div>
             {focusQueue.length === 0 ? (
-              <p style={{ fontSize: '14px', color: '#6366f1', opacity: 0.7 }}>Assign numbers 1-5 to tasks below to build your focus queue.</p>
+              <p style={{ fontSize: '14px', color: '#6366f1', opacity: 0.7 }}>Assign numbers 1-5 to tasks below to set deadlines.</p>
             ) : (
               focusQueue.map((task, i) => (
                 <div key={task.id} onClick={() => setActiveProject({ ...task, isScheduled: false })} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', borderRadius: '8px', background: i === 0 ? 'white' : 'rgba(255,255,255,0.6)', border: i === 0 ? '2px solid #a5b4fc' : '1px solid #e0e7ff', marginBottom: '8px', cursor: 'pointer' }}>
