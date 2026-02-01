@@ -398,7 +398,7 @@ function TodoApp() {
           </div>
 
           <div style={{ background: 'linear-gradient(to right, #eef2ff, #f5f3ff)', borderRadius: '12px', border: '2px solid #c7d2fe', padding: '16px', marginBottom: '24px' }}>
-            <div style={{ fontSize: '18px', fontWeight: '600', color: '#312e81', marginBottom: '4px' }}>🎯 Focus Queue</div>
+            <div style={{ fontSize: '18px', fontWeight: '600', color: '#312e81', marginBottom: '4px' }}>🎯 Deadlines Right Now</div>
             <div style={{ fontSize: '12px', color: '#6366f1', marginBottom: '12px', opacity: 0.7 }}>{categoryFilter === 'all' ? 'Top 5 priorities across all categories' : `Top 5 priorities within ${CATEGORIES[categoryFilter]?.label}`}</div>
             {focusQueue.length === 0 ? (
               <p style={{ fontSize: '14px', color: '#6366f1', opacity: 0.7 }}>Assign numbers 1-5 to tasks below to build your focus queue.</p>
