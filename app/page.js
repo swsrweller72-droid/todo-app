@@ -446,38 +446,7 @@ function TodoApp({ user, signOut }) {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '4px', marginBottom: '16px' }}>
-            {['all', 'active', 'completed'].map(f => (
-              <button key={f} onClick={() => setFilter(f)} style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '12px', background: filter === f ? '#2563eb' : '#e2e8f0', color: filter === f ? 'white' : '#475569', textTransform: 'capitalize' }}>{f}</button>
-            ))}
-          </div>
-
-          <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-            <div style={{ padding: '12px 16px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase' }}>Backlog</span>
-              <span style={{ fontSize: '12px', color: '#64748b' }}>{categoryFilter === 'all' ? 'Setting global priority' : `Setting ${CATEGORIES[categoryFilter]?.label} priority`}</span>
-            </div>
-            {otherTasks.length === 0 ? (
-              <p style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>No tasks yet. Add one above!</p>
-            ) : (
-              otherTasks.map(task => (
-                <div key={task.id} onClick={() => setActiveProject({ ...task, isScheduled: false })} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
-                  <select value={getFocusOrder(task) || ''} onChange={(e) => { e.stopPropagation(); setFocusOrder(task.id, e.target.value) }} onClick={(e) => e.stopPropagation()} disabled={task.completed} style={{ width: '50px', padding: '4px', border: '1px solid #d1d5db', borderRadius: '4px', textAlign: 'center', fontSize: '14px' }}>
-                    <option value="">—</option>
-                    {[1,2,3,4,5].map(n => <option key={n} value={n} disabled={usedOrders.includes(n)}>{n}</option>)}
-                  </select>
-                  <input type="checkbox" checked={task.completed} onChange={(e) => { e.stopPropagation(); toggleComplete(task.id) }} onClick={(e) => e.stopPropagation()} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
-                  <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '12px', background: CATEGORIES[task.category]?.color, color: CATEGORIES[task.category]?.textColor, border: `1px solid ${CATEGORIES[task.category]?.border}` }}>{CATEGORIES[task.category]?.label}</span>
-                  <span style={{ flex: 1, fontSize: '14px', textDecoration: task.completed ? 'line-through' : 'none', color: task.completed ? '#9ca3af' : '#374151' }}>{task.text}</span>
-                  {task.claude_project_url && <span style={{ fontSize: '12px', padding: '2px 6px', borderRadius: '4px', background: '#ffedd5', color: '#c2410c', fontWeight: '500' }}>✦</span>}
-                  {task.notes && <span style={{ color: '#9ca3af', fontSize: '12px' }}>📎</span>}
-                  <button onClick={(e) => { e.stopPropagation(); deleteTask(task.id) }} style={{ padding: '4px 8px', color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '12px', opacity: 0.5 }}>Delete</button>
-                </div>
-              ))
-            )}
-          </div>
-
-          <div style={{ borderTop: '1px solid #d1d5db', paddingTop: '24px', marginTop: '24px' }}>
+                  <div style={{ borderTop: '1px solid #d1d5db', paddingTop: '24px', marginTop: '24px' }}>
             <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#1e293b', marginBottom: '16px' }}>📅 Scheduled Tasks</h2>
             <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '16px', marginBottom: '16px' }}>
               <div style={{ fontSize: '14px', fontWeight: '500', color: '#475569', marginBottom: '12px' }}>Add Scheduled Task</div>
@@ -519,6 +488,38 @@ function TodoApp({ user, signOut }) {
               )}
             </div>
           </div>
+              
+          <div style={{ display: 'flex', gap: '4px', marginBottom: '16px' }}>
+            {['all', 'active', 'completed'].map(f => (
+              <button key={f} onClick={() => setFilter(f)} style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '12px', background: filter === f ? '#2563eb' : '#e2e8f0', color: filter === f ? 'white' : '#475569', textTransform: 'capitalize' }}>{f}</button>
+            ))}
+          </div>
+
+          <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+            <div style={{ padding: '12px 16px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase' }}>Backlog</span>
+              <span style={{ fontSize: '12px', color: '#64748b' }}>{categoryFilter === 'all' ? 'Setting global priority' : `Setting ${CATEGORIES[categoryFilter]?.label} priority`}</span>
+            </div>
+            {otherTasks.length === 0 ? (
+              <p style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>No tasks yet. Add one above!</p>
+            ) : (
+              otherTasks.map(task => (
+                <div key={task.id} onClick={() => setActiveProject({ ...task, isScheduled: false })} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
+                  <select value={getFocusOrder(task) || ''} onChange={(e) => { e.stopPropagation(); setFocusOrder(task.id, e.target.value) }} onClick={(e) => e.stopPropagation()} disabled={task.completed} style={{ width: '50px', padding: '4px', border: '1px solid #d1d5db', borderRadius: '4px', textAlign: 'center', fontSize: '14px' }}>
+                    <option value="">—</option>
+                    {[1,2,3,4,5].map(n => <option key={n} value={n} disabled={usedOrders.includes(n)}>{n}</option>)}
+                  </select>
+                  <input type="checkbox" checked={task.completed} onChange={(e) => { e.stopPropagation(); toggleComplete(task.id) }} onClick={(e) => e.stopPropagation()} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
+                  <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '12px', background: CATEGORIES[task.category]?.color, color: CATEGORIES[task.category]?.textColor, border: `1px solid ${CATEGORIES[task.category]?.border}` }}>{CATEGORIES[task.category]?.label}</span>
+                  <span style={{ flex: 1, fontSize: '14px', textDecoration: task.completed ? 'line-through' : 'none', color: task.completed ? '#9ca3af' : '#374151' }}>{task.text}</span>
+                  {task.claude_project_url && <span style={{ fontSize: '12px', padding: '2px 6px', borderRadius: '4px', background: '#ffedd5', color: '#c2410c', fontWeight: '500' }}>✦</span>}
+                  {task.notes && <span style={{ color: '#9ca3af', fontSize: '12px' }}>📎</span>}
+                  <button onClick={(e) => { e.stopPropagation(); deleteTask(task.id) }} style={{ padding: '4px 8px', color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '12px', opacity: 0.5 }}>Delete</button>
+                </div>
+              ))
+            )}
+          </div>
+
         </>
       ) : view === 'projects' ? (
         <>
