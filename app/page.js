@@ -380,7 +380,7 @@ function TodoApp({ user, signOut }) {
   return (
     <div style={{ maxWidth: '700px', margin: '0 auto', padding: '24px', minHeight: '100vh' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: '600', color: '#1e293b' }}>To-Do List</h1>
+        <h1 style={{ fontSize: '24px', fontWeight: '600', color: '#1e293b' }}>To-Do List</h1> <a href="https://mail.google.com" target="_blank" rel="noopener noreferrer" style={{ padding: '8px 16px', background: '#ea4335', color: 'white', borderRadius: '8px', fontSize: '14px', fontWeight: '500', textDecoration: 'none' }}>✉ Gmail</a>
         <button 
           onClick={signOut}
           style={{ 
