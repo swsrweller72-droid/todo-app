@@ -62,7 +62,7 @@ function TodoApp({ user, signOut }) {
   const [newScheduled, setNewScheduled] = useState('')
   const [newScheduledCategory, setNewScheduledCategory] = useState('personal')
   const [newScheduledDate, setNewScheduledDate] = useState('')
-  const [newScheduledTime, setNewScheduledTime] = useState('')
+  const [newScheduledTime, setNewScheduledTime] = useState('')   const [newProjectId, setNewProjectId] = useState('')
 
   const [newHabit, setNewHabit] = useState('')
   const [newHabitCategory, setNewHabitCategory] = useState('personal')
