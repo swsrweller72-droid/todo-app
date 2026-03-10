@@ -124,7 +124,7 @@ function TodoApp({ user, signOut }) {
     const { data } = await supabase.from('tasks').insert([{ 
       text: newTask.trim(), 
       category: newCategory,
-      is_task: true,
+      is_task: true,       project_id: newProjectId || null,
       user_id: user.id
     }]).select()
     if (data) {
