@@ -449,7 +449,7 @@ function TodoApp({ user, signOut }) {
   <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#1e293b', marginBottom: '16px' }}>📆 Calendar</h2>
   <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
     <iframe
-      src="https://calendar.google.com/calendar/embed?src=swsrweller72%40gmail.com&ctz=America%2FNew_York&mode=AGENDA&showTitle=0&showPrint=0&showCalendars=0&showTabs=0&showNav=1"
+      src="https://calendar.google.com/calendar/embed?src=swsrweller72%40gmail.com&src=dDQ4Y29lYjNuOG50dW5sbWozb3UwNXBib2dAZ3JvdXAuY2FsZW5kYXIuZ29vZ2xlLmNvbQ&src=Zml0Y2xvdWRAZ21haWwuY29t&ctz=America%2FNew_York&mode=AGENDA&showTitle=0&showPrint=0&showCalendars=0&showTabs=0&showNav=1"
       style={{ border: 0, width: '100%', height: '400px' }}
       frameBorder="0"
       scrolling="no"
